@@ -10,30 +10,30 @@ function containsPoint(rect: ScreenRect, x: number, y: number): boolean {
   return x >= rect.x && y >= rect.y && x < rect.x + rect.width && y < rect.y + rect.height
 }
 
-function escapeAttributeValue(value: string): string {
-  return value.replace(/["\\]/g, '\\$&')
-}
-
-function buildHostWebviewRectScript(browserTabId: string): string {
-  const selector = `[data-browser-client-page-id="${escapeAttributeValue(browserTabId)}"] webview`
+// Match by guest id: the live <webview> moves between the pane viewport and the retained host.
+function buildHostWebviewRectScript(guestWebContentsId: number): string {
   return `(() => {
-    const el = document.querySelector(${JSON.stringify(selector)})
-    if (!el) return null
-    const r = el.getBoundingClientRect()
-    return { x: r.left, y: r.top, width: r.width, height: r.height }
+    for (const el of document.querySelectorAll('webview')) {
+      let id = null
+      try { id = el.getWebContentsId() } catch {}
+      if (id !== ${guestWebContentsId}) continue
+      const r = el.getBoundingClientRect()
+      return { x: r.left, y: r.top, width: r.width, height: r.height }
+    }
+    return null
   })()`
 }
 
 async function readHostGuestScreenRect(
   renderer: Electron.WebContents,
-  browserTabId: string
+  guestWebContentsId: number
 ): Promise<ScreenRect | null> {
   const window = BrowserWindow.fromWebContents(renderer)
   if (!window || window.isDestroyed() || window.isMinimized() || !window.isVisible()) {
     return null
   }
   const rect: ScreenRect | null = await renderer.executeJavaScript(
-    buildHostWebviewRectScript(browserTabId)
+    buildHostWebviewRectScript(guestWebContentsId)
   )
   if (!rect || rect.width <= 0 || rect.height <= 0) {
     return null
@@ -90,7 +90,7 @@ export function installGuestDevToolsHoverRelay(args: {
       }
       try {
         const [nextGuestRect, nextDevToolsRect] = await Promise.all([
-          readHostGuestScreenRect(renderer, browserTabId),
+          readHostGuestScreenRect(renderer, guest.id),
           readDevToolsWindowRect(devTools)
         ])
         guestRect = nextGuestRect
