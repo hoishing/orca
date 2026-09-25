@@ -47,9 +47,13 @@ export function installGuestDevToolsCloseShortcut(
       if (!keybindingMatchesAction('tab.close', input, process.platform, getKeybindings())) {
         return
       }
-      if (!guest.isDestroyed()) {
-        guest.closeDevTools()
-      }
+      // Why deferred: AppKit is still routing this key through the DevTools view; destroying
+      // it synchronously segfaults in performKeyEquivalent.
+      setImmediate(() => {
+        if (!guest.isDestroyed()) {
+          guest.closeDevTools()
+        }
+      })
     })
   }
   if (guest.isDevToolsOpened()) {
