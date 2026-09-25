@@ -5,10 +5,10 @@ import {
   type BrowserAnnotationViewportBridgeOptions
 } from '../../shared/browser-annotation-viewport-bridge'
 import type { BrowserViewportOverride } from '../../shared/browser-workspace-types'
-import { installGuestDevToolsCloseShortcut } from './browser-guest-devtools-close-shortcut'
 import { googleAuthUserAgent, isGoogleAuthUrl } from './browser-google-auth-ua'
 import { BrowserManagerDownloadLifecycle } from './browser-manager-download-lifecycle'
 import { getBrowserProcessUserAgentIdentity } from './browser-process-user-agent'
+import { installGuestDevToolsCloseShortcut } from './browser-guest-devtools-close-shortcut'
 
 export abstract class BrowserManagerViewport extends BrowserManagerDownloadLifecycle {
   // Why: guests are isolated from Orca's preload bridge, so main owns the devtools escape hatch after a tab→guest lookup.
@@ -28,8 +28,8 @@ export abstract class BrowserManagerViewport extends BrowserManagerDownloadLifec
     if (this.offscreenGuestIds.has(webContentsId)) {
       return false
     }
-    installGuestDevToolsCloseShortcut(guest, () => this.settingsResolver?.().keybindings)
     guest.openDevTools({ mode: 'detach' })
+    installGuestDevToolsCloseShortcut(guest, () => this.settingsResolver?.().keybindings)
     return true
   }
 

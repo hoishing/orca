@@ -56,7 +56,7 @@ export function installGuestDevToolsCloseShortcut(
       })
     })
   }
-  if (guest.isDevToolsOpened()) {
+  if (guest.isDevToolsOpened() && guest.devToolsWebContents) {
     install()
     return
   }
