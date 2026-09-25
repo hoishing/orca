@@ -1,6 +1,29 @@
-import { keybindingMatchesAction, type KeybindingOverrides } from '../../shared/keybindings'
+import {
+  keybindingMatchesAction,
+  type KeybindingInput,
+  type KeybindingOverrides
+} from '../../shared/keybindings'
 
 const installedDevTools = new WeakSet<Electron.WebContents>()
+
+// input-event is typed as the generic InputEvent, but key events carry key/code at runtime.
+function readKeyDownInput(input: Electron.InputEvent): KeybindingInput | null {
+  const modifiers = input.modifiers ?? []
+  if (input.type !== 'rawKeyDown' || modifiers.includes('isautorepeat')) {
+    return null
+  }
+  if (!('key' in input) || typeof input.key !== 'string') {
+    return null
+  }
+  return {
+    key: input.key,
+    code: 'code' in input && typeof input.code === 'string' ? input.code : undefined,
+    meta: modifiers.includes('meta'),
+    control: modifiers.includes('control'),
+    alt: modifiers.includes('alt'),
+    shift: modifiers.includes('shift')
+  }
+}
 
 // Why: the app menu has no close role (main-window Cmd/Ctrl+W closes Orca tabs), so a detached
 // guest DevTools window has nothing handling the close chord unless its webContents claims it.
@@ -14,15 +37,16 @@ export function installGuestDevToolsCloseShortcut(
       return
     }
     installedDevTools.add(devTools)
-    // Listener dies with the DevTools webContents, which is destroyed on close.
-    devTools.on('before-input-event', (event, input) => {
-      if (input.type !== 'keyDown' || input.isAutoRepeat) {
+    // Why input-event: Electron never emits before-input-event for DevTools webContents.
+    // The listener dies with the DevTools webContents, which is destroyed on close.
+    devTools.on('input-event', (_event, inputEvent) => {
+      const input = readKeyDownInput(inputEvent)
+      if (!input) {
         return
       }
       if (!keybindingMatchesAction('tab.close', input, process.platform, getKeybindings())) {
         return
       }
-      event.preventDefault()
       if (!guest.isDestroyed()) {
         guest.closeDevTools()
       }
